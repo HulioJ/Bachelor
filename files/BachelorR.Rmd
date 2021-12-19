@@ -1,0 +1,103 @@
+---
+title: "BachelorR"
+output: html_document
+---
+
+```{r}
+setwd("/Users/julia/Documents/CogSci/Rbach/BachelorR/files")
+library(fs, dplyr, ggplot2)
+
+path = "/Users/julia/Documents/CogSci/Rbach/BachelorR/files"
+files <- dir_ls(path, glob="*.csv")
+df <- map_dfr(files, ~read_csv(.x, col_types = cols(participant = col_character())))
+
+
+sum(df$`Age*`) %>%  group_by(participant) 
+mean(df$`Age*`)
+range(df$`Age*`)
+
+
+#get gender count
+sum(df$`Gender*`=='woman')
+sum(df$`Gender*`=='man')
+sum(df$`Gender*`=='other')
+
+table(df$participant)
+
+1248/96
+1728/96
+
+13+18+1
+
+sd(df$`Age*`)
+
+
+datalist <-  list()
+
+for (i in unique(df$participant)){
+  subset_data <- df %>% 
+    filter(participant==i)
+  if (subset_data$Text[1] == "Please complete all tasks. It will take no more than 5-10 minutes.
+
+Press any key to start the experiment"){
+    subset_data$Condition <- 1 }
+    else {
+    subset_data$Condition <-  0}
+    g <- 1
+    datalist[[g]] <- subset_data
+    
+    g <- g+1
+
+}
+
+words <- read.csv("wordlist_final.csv", sep = ";")
+getwd()
+
+common_col_names <- intersect(names(df), names(words))
+newdf <- merge(df, words, by=common_col_names, all.x=TRUE)
+
+
+
+class(newdf$`Age*`)
+sum(is.na(newdf$Score))
+mean(newdf$Score, na.rm = TRUE)
+
+#key responses
+
+names(newdf)[names(newdf) == 'key_resp_11.keys'] <- 'resp1'
+newdf$resp1[newdf$resp1 == "left"] <- "1"
+newdf$resp1[newdf$resp1 == "right"] <- "-1"
+
+names(newdf)[names(newdf) == 'key_resp_12.keys'] <- 'resp2'
+newdf$resp1[newdf$resp1 == "left"] <- "1"
+newdf$resp1[newdf$resp1 == "right"] <- "-1"
+
+newdf$sentiment1 <- newdf$resp1*newdf$Score
+newdf$sentiment2 <- newdf$resp2*newdf$Score
+newdf$resp1 <- as.numeric(newdf$resp1)
+newdf$resp1 <- as.numeric(newdf$resp1)
+#sentiment all conditions first round
+summary(newdf$sentiment, na.rm = TRUE)
+hist(o)
+hist
+o <- newdf$sentiment
+
+ggplot(data=newdf, aes(newdf$sentiment)) + 
+  geom_histogram()
+
+
+##second round 
+
+summary(newdf$sentiment, na.rm = TRUE)
+
+#colnames
+
+names(newdf)[names(newdf) == 'key_resp_15.keys'] <- 'socialexc'
+
+
+newdf %>% group_by(newdf$Question)%>% sum(newdf$socialexc)
+summary(newdf$socialexc) 
+
+tapply(newdf$socialexc, df$Question, summary, na.rm = T)
+```
+
