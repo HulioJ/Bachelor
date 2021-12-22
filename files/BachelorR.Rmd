@@ -4,100 +4,156 @@ output: html_document
 ---
 
 ```{r}
+
+####SETUP###
 setwd("/Users/julia/Documents/CogSci/Rbach/BachelorR/files")
 library(fs, dplyr, ggplot2)
+pacman::p_load(stringi)
 
 path = "/Users/julia/Documents/CogSci/Rbach/BachelorR/files"
+
+
+###LOAD FILES###
 files <- dir_ls(path, glob="*.csv")
 df <- map_dfr(files, ~read_csv(.x, col_types = cols(participant = col_character())))
 
 
-sum(df$`Age*`) %>%  group_by(participant) 
-mean(df$`Age*`)
-range(df$`Age*`)
+#Omit incomplete files
+
+  df <- df[!is.na(df$`Gender*`),]  
+
+#Remove a weird file
+  new_df <- subset(df, `Age*` != 8)
+  df <- new_df
+
+#Generate IDs to fix a few NAs and anonymize data
+
+Ranid <- stri_rand_strings(34, 7, pattern = "[A-Za-z0-9]")
+df$participant <- rep(Ranid, each=96)
 
 
-#get gender count
-sum(df$`Gender*`=='woman')
-sum(df$`Gender*`=='man')
-sum(df$`Gender*`=='other')
-
-table(df$participant)
-
-1248/96
-1728/96
-
-13+18+1
-
-sd(df$`Age*`)
-
-
-datalist <-  list()
-
-for (i in unique(df$participant)){
-  subset_data <- df %>% 
-    filter(participant==i)
-  if (subset_data$Text[1] == "Please complete all tasks. It will take no more than 5-10 minutes.
-
-Press any key to start the experiment"){
-    subset_data$Condition <- 1 }
-    else {
-    subset_data$Condition <-  0}
-    g <- 1
-    datalist[[g]] <- subset_data
-    
-    g <- g+1
-
-}
+#combining word sentiments
 
 words <- read.csv("wordlist_final.csv", sep = ";")
-getwd()
 
 common_col_names <- intersect(names(df), names(words))
-newdf <- merge(df, words, by=common_col_names, all.x=TRUE)
+df <- merge(df, words, by=common_col_names, all.x=TRUE)
+
+
+# Conditions 
+
+  df <- df %>% group_by(participant) %>% fill(Condition, .direction="downup")
+
+#Key responses
+
+  names(df)[names(df) == 'key_resp_11.keys'] <- 'response1'
+  df$response1[df$response1 == "left"] <- "1"
+  df$response1[df$response1 == "right"] <- "-1"
+  
+  names(df)[names(df) == 'key_resp_12.keys'] <- 'response2'
+  df$response2[df$response2 == "left"] <- "1"
+  df$response2[df$response2 == "right"] <- "-1"
+
+
+  df$response1 <- as.numeric(df$response1)
+  df$response2 <- as.numeric(df$response2)
+
+#Sentiment scores response*Word score
+  df$sentiment1 <- df$response1*df$Score
+  df$sentiment2 <- df$response2*df$Score
 
 
 
-class(newdf$`Age*`)
-sum(is.na(newdf$Score))
-mean(newdf$Score, na.rm = TRUE)
-
-#key responses
-
-names(newdf)[names(newdf) == 'key_resp_11.keys'] <- 'resp1'
-newdf$resp1[newdf$resp1 == "left"] <- "1"
-newdf$resp1[newdf$resp1 == "right"] <- "-1"
-
-names(newdf)[names(newdf) == 'key_resp_12.keys'] <- 'resp2'
-newdf$resp1[newdf$resp1 == "left"] <- "1"
-newdf$resp1[newdf$resp1 == "right"] <- "-1"
-
-newdf$sentiment1 <- newdf$resp1*newdf$Score
-newdf$sentiment2 <- newdf$resp2*newdf$Score
-newdf$resp1 <- as.numeric(newdf$resp1)
-newdf$resp1 <- as.numeric(newdf$resp1)
+df$Condition <- as.factor(df$Condition)
 #sentiment all conditions first round
-summary(newdf$sentiment, na.rm = TRUE)
-hist(o)
-hist
-o <- newdf$sentiment
+mean(df$sentiment2, na.rm = T)
+range(df$sentiment1, na.rm = T)
+range(df$sentiment2, na.rm = T)
 
-ggplot(data=newdf, aes(newdf$sentiment)) + 
+ggplot(data=df, aes(df$sentiment1)) + 
   geom_histogram()
 
 
 ##second round 
 
-summary(newdf$sentiment, na.rm = TRUE)
+summary(newdf$sentiment2, na.rm = TRUE)
 
-#colnames
+ggplot(data=newdf, aes(newdf$sentiment2)) + 
+  geom_histogram()
+
+sum(newdf$resp2, na.rm = TRUE)
+sum(newdf$resp1, na.rm = TRUE)
+
+newdf %>% group_by(newdf$Question)%>% sum(newdf$socialexc)
+
+
+#Social exclusion
 
 names(newdf)[names(newdf) == 'key_resp_15.keys'] <- 'socialexc'
 
 
 newdf %>% group_by(newdf$Question)%>% sum(newdf$socialexc)
-summary(newdf$socialexc) 
+table(newdf$resp1) 
+table(newdf$resp2) 
 
-tapply(newdf$socialexc, df$Question, summary, na.rm = T)
+449/447
+466/430
+table(newdf$socialexc)
+hist(newdf$socialexc)
+ggplot(data=newdf, aes(newdf$socialexc)) + 
+  geom_histogram()
+mean(newdf$socialexc, na.rm = T)
+
+#reaction time
+
+  mean(newdf$key_resp_11.rt, na.rm = T)
+  mean(newdf$key_resp_12.rt, na.rm = T)
+  
+  newdf %>% group_by(newdf$resp1)%>% mean(newdf$key_resp_11.rt)
+
+tapply(newdf$key_resp_12.rt, newdf$resp2, summary, na.rm = T)
+sum(newdf$Condition, na.rm = TRUE)
+
+
+```
+
+
+
+```{r}
+##  Descriptive stats ##
+
+  #gender
+    df %>% count(`Gender*`)
+    1632/96
+    96/96
+    1536/96
+  
+  #age
+    summary(df$`Age*`)
+  
+  #Conditions
+    sum(df$Condition == 0)/96
+    sum(df$Condition == 1)/96
+
+```
+
+```{r}
+
+### ANALYSIS 
+
+ mean(singlerun$openness)
+    sd(singlerun$openness)
+    median(singlerun$openness)
+    range(singlerun$openness)
+cor.test(hyp1big$O, hyp1big$W)
+
+
+hyp2 <- lmerTest::lmer(O ~ environmentconstant + entropyconstant + (1|run), data = change)
+summary(hyp2)
+
+r.squaredGLMM(hyp2OE)
+anova(hyp2OS,hyp2OE)
+  t.test(rigident$openness, rigidenv$openness)
+
 ```
 
