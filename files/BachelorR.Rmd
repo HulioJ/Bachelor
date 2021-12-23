@@ -6,9 +6,8 @@ output: html_document
 ```{r}
 
 ####SETUP###
-setwd("/Users/julia/Documents/CogSci/Rbach/BachelorR/files")
-library(fs, dplyr, ggplot2)
-pacman::p_load(stringi)
+setwd("/Users/julia/Documents/CogSci/Rbach/BachelorR")
+pacman::p_load(stringi, janitor, scales, fs, dplyr, ggplot2)
 
 path = "/Users/julia/Documents/CogSci/Rbach/BachelorR/files"
 
@@ -34,7 +33,7 @@ df$participant <- rep(Ranid, each=96)
 
 #combining word sentiments
 
-words <- read.csv("wordlist_final.csv", sep = ";")
+words <- read.csv("/Users/julia/Documents/CogSci/Rbach/BachelorR/wordlist_final.csv", sep = ";")
 
 common_col_names <- intersect(names(df), names(words))
 df <- merge(df, words, by=common_col_names, all.x=TRUE)
@@ -44,6 +43,9 @@ df <- merge(df, words, by=common_col_names, all.x=TRUE)
 
   df <- df %>% group_by(participant) %>% fill(Condition, .direction="downup")
 
+  
+  
+  
 #Key responses
 
   names(df)[names(df) == 'key_resp_11.keys'] <- 'response1'
@@ -58,13 +60,34 @@ df <- merge(df, words, by=common_col_names, all.x=TRUE)
   df$response1 <- as.numeric(df$response1)
   df$response2 <- as.numeric(df$response2)
 
-#Sentiment scores response*Word score
-  df$sentiment1 <- df$response1*df$Score
-  df$sentiment2 <- df$response2*df$Score
+  
 
+
+ #divide scores by trial
+  
+  df$trial1Scores <- NA
+  df$trial2Scores <- NA
+  df$trial2Scores <-  ifelse(is.na(df$response2), NA, df$Score)
+  df$trial1Scores <-  ifelse(is.na(df$response1), NA, df$Score)
+  
+ ###  scaling the Wordscores 
+  
+  df$t1Score_scaled <- rescale(df$trial1Scores)
+  df$t2Score_scaled <- rescale(df$trial2Scores)
+  
+#Sentiment scores response*Word score
+  
+  df$sentiment1 <- df$response1*df$t1Score_scaled
+  df$sentiment2 <- df$response2*df$t2Score_scaled
+  
+   df$Scores_scaled <-  rescale(df$Scores)
 
 
 df$Condition <- as.factor(df$Condition)
+
+write.csv(df, file = "fixeddata.csv")
+
+
 #sentiment all conditions first round
 mean(df$sentiment2, na.rm = T)
 range(df$sentiment1, na.rm = T)
@@ -87,11 +110,6 @@ sum(newdf$resp1, na.rm = TRUE)
 newdf %>% group_by(newdf$Question)%>% sum(newdf$socialexc)
 
 
-#Social exclusion
-
-names(newdf)[names(newdf) == 'key_resp_15.keys'] <- 'socialexc'
-
-
 newdf %>% group_by(newdf$Question)%>% sum(newdf$socialexc)
 table(newdf$resp1) 
 table(newdf$resp2) 
@@ -104,15 +122,8 @@ ggplot(data=newdf, aes(newdf$socialexc)) +
   geom_histogram()
 mean(newdf$socialexc, na.rm = T)
 
-#reaction time
 
-  mean(newdf$key_resp_11.rt, na.rm = T)
-  mean(newdf$key_resp_12.rt, na.rm = T)
-  
-  newdf %>% group_by(newdf$resp1)%>% mean(newdf$key_resp_11.rt)
 
-tapply(newdf$key_resp_12.rt, newdf$resp2, summary, na.rm = T)
-sum(newdf$Condition, na.rm = TRUE)
 
 
 ```
@@ -136,6 +147,155 @@ sum(newdf$Condition, na.rm = TRUE)
     sum(df$Condition == 1)/96
 
 ```
+```{r}
+# HYP 1
+
+ ## COMPARING ACROSS POSITIVE AND NEGATIVE
+
+
+  
+  #One column with unscaled sentiment:
+  
+  df$sentiment1_unscaled <- df$response1*df$Score
+  df$sentiment2_unscaled <- df$response2*df$Score
+  
+  df$sentiment <-  ifelse(is.na(df$sentiment1_unscaled), NA, df$sentiment1_unscaled)
+  df$sentiment <-  ifelse(is.na(df$sentiment2_unscaled), df$sentiment, df$sentiment2_unscaled)
+  
+  
+    df$Trial <- ifelse(is.na(df$sentiment2_unscaled == T), 1, 2)
+  #Sentiment scores response*Word score
+  
+ 
+   #separating
+
+  pos_context <- subset(df, (Condition == 1))
+  neg_context <- subset(df, (Condition == 0))
+  
+  
+  aggregate(df$sentiment, list(df$Condition), mean, na.rm = T)
+  aggregate(df$sentiment, list(df$Condition), mean, na.rm = T)
+  aggregate(df$sentiment2, list(df$Condition), mean, na.rm = T)
+  
+  t.test(neg_context$sentiment, pos_context$sentiment)
+  mean(neg_context$sentiment)
+  t.test(neg_context$sentiment2_unscaled, pos_context$sentiment2_unscaled)
+  t.test(neg_context$sentiment1_unscaled, pos_context$sentiment1_unscaled)
+  
+  model3 <- lmerTest::lmer(sentiment2_unscaled ~ Condition + (1|participant), data = df)
+  summary(sen)
+  
+  
+  # THISES PRE TRIAL BOTH CONDITIONS
+  
+  pre_all_thises <- subset(df, (response1==1))
+  pre_all_thats <- subset(df, (response1==-1))
+  post_all_thises <- subset(df, (response2==1))
+  post_all_thats <- subset(df, (response2==-1))
+  
+  aggregate(pre_all_thises$response1, list(pre_all_thises$Condition), sum)
+  sum(pre_all_thises$response1, na.rm =T)
+  
+  aggregate(pre_all_thats$response1, list(pre_all_thats$Condition), sum, na.rm = T)
+  sum(all_thats$response2, na.rm = T)
+  
+  aggregate(post_all_thises$response2, list(post_all_thises$Condition), sum, na.rm = T)
+  
+  sum(post_all_thises$response2, na.rm = T)
+  
+  sum(post_all_thats$response2, na.rm = T)
+  
+  #sum of all pre trial responses
+  
+    (sum(pre_all_thises$response1, na.rm = T))+(-1*(sum(pre_all_thats$response1, na.rm = T)))
+  
+  #percentage of pre-trial this's
+    
+  (sum(pre_all_thises$response1, na.rm = T))/((sum(pre_all_thises$response1, na.rm = T))+(-1*(sum(pre_all_thats$response1, na.rm = T))))
+  
+  
+  #sum of all post trial responses
+  
+    (sum(post_all_thises$response2, na.rm = T))+(-1*(sum(post_all_thats$response2, na.rm = T)))
+  
+  #percentage of post-trial this's
+    
+      (sum(post_all_thises$response2, na.rm = T))/((sum(post_all_thises$response2, na.rm = T))+(-1*(sum(post_all_thats$response2, na.rm = T))))
+  
+    
+  #distribution this's to positive words trial2
+  
+    #filtering out only positive words
+      positive_words <- subset(df, (factor==1))
+    #filtering these by only "this" responses
+      positive_thises_2 <- subset(positive_words, (response2==1))
+    #stats
+      aggregate(positive_thises_2$response2, list(positive_thises_2$Condition), sum, na.rm = T)
+      sum(positive_thises_2$response2)¨
+      
+      
+  
+#DISTRIBUTION THIS'S TO POSITIVE WORDS TRIAL 1
+  
+      
+    #filtering positive words by only "this" responses
+      positive_thises_1 <- subset(positive_words, (response1==1))
+   
+     #stats 
+      aggregate(positive_thises_1$response1, list(positive_thises_1$Condition), sum, na.rm = T)
+      sum(positive_thises_1$response1)
+      
+      
+  #distribution that's to positive words trial1&2
+  
+    #filtering these by only "that" responses
+      positive_thats_1 <- subset(positive_words, (response1==-1))
+      positive_thats_2 <- subset(positive_words, (response2==-1))
+      sum(positive_thats_1$response1)
+  
+  
+  #percentages of positive this's trial 1
+      
+      (sum(positive_thises_1$response1, na.rm = T))/((sum(positive_thises_1$response1, na.rm = T))+(-1*(sum(positive_thats_1$response1, na.rm = T))))
+   #percentages of positive this's trial 2
+       (sum(positive_thises_2$response2, na.rm = T))/((sum(positive_thises_2$response2, na.rm = T))+(-1*(sum(positive_thats_2$response2, na.rm = T))))
+  
+
+      
+      #trial 1 & 2 sum of this' per condition
+      
+      trial1_thises_conditional <-  (aggregate(pre_all_thises$response1, list(pre_all_thises$Condition), sum, na.rm =T))   
+      trial2_thises_conditional <-  (aggregate(post_all_thises$response2, list(post_all_thises$Condition), sum, na.rm =T))
+      
+      
+      trial1_thises_conditional$trial <- "Trial 1"
+      trial2_thises_conditional$trial <- "Trial 2"
+      
+      
+      
+      thises_conditional <- rbind(trial1_thises_conditional, trial2_thises_conditional)
+        
+      thises_conditional$Condition <- ifelse(thises_conditional$Condition==0, "Negative", "Positive")
+      colnames(thises_conditional) <- c("Condition", "Sum", "Trial")
+    se <- sd(thises_conditional$Sum)
+      
+#PLOT 
+    
+pacman::p_load(wesanderson)
+pd <- position_dodge(0.1) # move them .05 to the left and right
+
+ggplot(thises_conditional, aes(x=Trial, y=Sum, add = "mean_se", group=1)) + 
+    geom_line(aes(group=Condition,color=Condition))+
+   geom_point(aes(color=Condition))+
+   labs(x = "Trial", y = "Sum of this-responses")+
+   scale_fill_manual(values = wes_palette(2,name = "Darjeeling1"))+
+   theme_minimal()+
+     ylim(0, 450)
+      
+  
+  
+  
+```
 
 ```{r}
 
@@ -153,7 +313,248 @@ summary(hyp2)
 
 r.squaredGLMM(hyp2OE)
 anova(hyp2OS,hyp2OE)
-  t.test(rigident$openness, rigidenv$openness)
+
+
+  ## SOCIAL EXCLUSION  
+  
+
+names(df)[names(df) == 'soc_exp_resp'] <- 'soc_ex_resp'
+soc_ex <- subset(df, (!is.na(soc_ex_resp)))
+
+Q1 <- subset(soc_ex,(Question == "I felt alone during the experiment."))  
+Q2 <- subset(soc_ex,(Question == "I felt excluded during the experiment."))  
+Q3 <- subset(soc_ex,(Question == "I felt stressed during the experiment."))  
+Q4 <- subset(soc_ex,(Question == "Negative feedback showed me that I had lower task competencies than the other participants."))  
+
+#Social excusion
+
+    aggregate(Q1$soc_ex_resp, list(Q1$Condition), mean)
+    aggregate(Q2$soc_ex_resp, list(Q2$Condition), mean)
+    aggregate(Q3$soc_ex_resp, list(Q3$Condition), mean)
+    aggregate(Q4$soc_ex_resp, list(Q4$Condition), mean)
+    
+    mean(Q1$soc_ex_resp)
+    mean(Q2$soc_ex_resp)
+    mean(Q3$soc_ex_resp)
+    mean(Q4$soc_ex_resp)
+    
+  #T test between conditions
+    
+    soc_ex_neg <- subset(soc_ex,(Condition == 0))  
+    soc_ex_pos <- subset(soc_ex,(Condition == 1)) 
+    
+    Q1neg <- subset(soc_ex_neg,(Question == "I felt alone during the experiment."))  
+    Q2neg <- subset(soc_ex_neg,(Question == "I felt excluded during the experiment."))  
+    Q3neg <- subset(soc_ex_neg,(Question == "I felt stressed during the experiment."))  
+    Q4neg <- subset(soc_ex_neg,(Question == "Negative feedback showed me that I had lower task competencies than the other participants."))  
+    
+    Q1pos <- subset(soc_ex_pos,(Question == "I felt alone during the experiment."))  
+    Q2pos <- subset(soc_ex_pos,(Question == "I felt excluded during the experiment."))  
+    Q3pos <- subset(soc_ex_pos,(Question == "I felt stressed during the experiment."))  
+    Q4pos <- subset(soc_ex_pos,(Question == "Negative feedback showed me that I had lower task competencies than the other participants."))  
+    
+    #Q1 stats
+      t.test(Q1neg$soc_ex_resp, Q1pos$soc_ex_resp)
+      sd(Q1neg$soc_ex_resp)
+      sd(Q1pos$soc_ex_resp)
+  #Q2 stats
+      t.test(Q2neg$soc_ex_resp, Q2pos$soc_ex_resp)
+      sd(Q2neg$soc_ex_resp)
+      sd(Q2pos$soc_ex_resp)
+     #Q3 stats
+      t.test(Q3neg$soc_ex_resp, Q3pos$soc_ex_resp)
+      sd(Q3neg$soc_ex_resp)
+      sd(Q3pos$soc_ex_resp)
+      range(Q3neg$soc_ex_resp)
+        #Q4 stats
+      t.test(Q4neg$soc_ex_resp, Q4pos$soc_ex_resp)
+      sd(Q4neg$soc_ex_resp)
+      sd(Q4pos$soc_ex_resp)
+      sd(Q4$soc_ex_resp)
+     
+     # all scores 
+      
+      mean(soc_ex$soc_ex_resp)
+      sd(soc_ex$soc_ex_resp)
+      aggregate(soc_ex$soc_ex_resp, list(soc_ex$Condition), mean)
+       aggregate(soc_ex$soc_ex_resp, list(soc_ex$Condition), sd)
+     t.test(soc_ex_neg$soc_ex_resp, soc_ex_pos$soc_ex_resp)
+
+
+```
+```{r}
+## HYP 3 ##
+
+  #filtering out positive context only
+
+  pos_context <- subset(df, (Condition == 1))
+  neg_context <- subset(df, (Condition == 0))
+
+  #t test pre and post trial
+
+  t.test(pos_context$sentiment1, pos_context$sentiment2)
+  summary(pos_context$sentiment1)
+  summary(pos_context$sentiment2)
+  sd(pos_context$sentiment1, na.rm = T)
+  sd(pos_context$sentiment2, na.rm = T)
+  mean(pos_context$sentiment1, na.rm = T)-mean(pos_context$sentiment2, na.rm = T)
+  #negative
+   t.test(neg_context$sentiment1, neg_context$sentiment2)
+  summary(neg_context$sentiment1)
+  summary(neg_context$sentiment2)
+  sd(neg_context$sentiment1, na.rm = T)
+  sd(neg_context$sentiment2, na.rm = T)
+  mean(neg_context$sentiment1, na.rm = T)-mean(neg_context$sentiment2, na.rm = T)
+  
+  
+ #Scaled sentiment scores
+  
+  df$sentiment_scaled <- NA
+  df$sentiment_scaled <-  ifelse(is.na(df$sentiment1), NA, df$sentiment1)
+  df$sentiment_scaled <-  ifelse(is.na(df$sentiment2), df$sentiment, df$sentiment2)
+  
+ 
+
+```
+
+
+
+```{r}
+### RESPONSE TIMES ###
+
+#reaction time
+
+  mean(newdf$key_resp_11.rt, na.rm = T)
+  mean(newdf$key_resp_12.rt, na.rm = T)
+  
+  newdf %>% group_by(newdf$resp1)%>% mean(newdf$key_resp_11.rt)
+
+  tapply(newdf$key_resp_12.rt, newdf$resp2, summary, na.rm = T)
+  sum(newdf$Condition, na.rm = TRUE)
+
+
+
+```
+
+
+```{r}
+## PLOTS 
+
+library(wesanderson)
+    ## SOCIAL EXCLUSION
+
+          #Making labels a bit nicer
+              df$shortened_questions <- df$Question
+              df$shortened_questions[df$shortened_questions == "I felt alone during the experiment."] <- "Loneliness"
+              df$shortened_questions[df$shortened_questions == "I felt excluded during the experiment."] <- "Exclusion"
+              df$shortened_questions[df$shortened_questions == "I felt stressed during the experiment."] <- "Stress"
+              df$shortened_questions[df$shortened_questions == "Negative feedback showed me that I had lower task competencies than the other participants."] <- "Negative feedback"
+              
+              
+          df$Conditions <-  ifelse((df$Condition==1), "Positive context", "Negative context")
+          
+          
+          soc_ex_resp_sd <- sd(df$soc_ex_resp)
+          soc_ex_resp_mean <- mean(df$soc_ex_resp)
+          
+          ggplot(data=subset(df, !is.na(shortened_questions)), aes(x=shortened_questions, y=soc_ex_resp, fill=Conditions)) +
+              geom_bar(stat='summary', position='dodge', fun = 'mean')+
+            labs(x="Social stress", y = "Mean response", color = "Conditions")+
+            scale_fill_manual(values = wes_palette(2,name = "Darjeeling1"))+
+            geom_errorbar(aes(ymin=soc_ex_resp_mean-soc_ex_resp_sd, ymax=soc_ex_resp_mean+soc_ex_resp_sd), width=.2)
+          
+
+
+
+## MEAN SENTIMENT ##
+          
+          
+          
+          mean_sentiments1 <- aggregate(df$sentiment1, list(df$participant), mean, na.rm = T)
+          mean_sentiments2 <- aggregate(df$sentiment2, list(df$participant), mean, na.rm = T)
+          
+          mean_sentiments1$trial <- "Trial 1"
+           mean_sentiments2$trial <-  "Trial 2"
+          
+        mean_sentiments <-  rbind(mean_sentiments1, mean_sentiments2)
+        
+        df2 <- df
+        df2$Condition <- as.numeric(df2$Condition)
+        
+        
+        condition <- aggregate(df2$Condition, list(df2$participant), sum, na.rm = T)
+        
+        condition$x <- ifelse(condition$x == 192, 1, 0)
+        
+        condition <- rbind(condition, condition)
+        
+        #Final df
+        sentiment_means <- merge(condition, mean_sentiments, by="Group.1")
+        colnames(sentiment_means) <- c("ID", "Condition", "Sentiment", "Trial")
+        sentiment_means$Condition <- as.factor(sentiment_means$Condition)
+          sentiment_means$Condition <- ifelse(sentiment_means$Condition==0, "Negative condition", "Positive condition")
+        
+        
+        ggplot(sentiment_means, aes(y=Sentiment, x=Trial, fill = Trial)) + 
+            geom_boxplot()+
+            scale_fill_manual(values = wes_palette(2,name = "Darjeeling1"))+
+            facet_wrap(~Condition)+
+            ylim(-0.5, 0.5)+
+            labs(x = "Trial", y = "Mean sentiment per participant")+
+            geom_point()+ 
+            stat_summary(geom="line", fun=mean)+
+            theme(legend.position = "none")
+          
+          
+          
+        
+       
+           
+            
+### PLOT FOR EACH WORD SENTIMENT
+        
+        
+          sentiment_per_word <- aggregate(df$sentiment, list(df$Word, df$Trial), mean, na.rm = T)
+           colnames(sentiment_per_word) <-  c("Word", "Trial","Sentiment")
+         t <- merge(sentiment_per_word, type, by = "Word")
+         
+         t$Trial <- as.factor(t$Trial)
+         
+         ggplot(t, aes(x=Word, y=Sentiment, color = type)) +
+          geom_point(size=2)+
+          scale_y_continuous()+
+          aes(x = fct_reorder(Word, Sentiment))+
+          labs(x = "Word", y = "Mean sentiment")+
+           theme_minimal()+
+           theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+         
+ #mean sentiment per group        
+aggregate(t$Sentiment, list(t$type), mean, na.rm = T)
+
+
+ #distribution of thises by group
+all_thises <- rbind(pre_all_thises, post_all_thises)
+aggregate(all_thises$response2, list(all_thises$type), sum, na.rm = T)
+
+aggregate(df$sentiment1, list(df$type), mean, na.rm = T)
+aggregate(df$sentiment2, list(df$type), mean, na.rm = T)
+aggregate(df$sentiment1, list(df$type), sd, na.rm = T)
+aggregate(df$sentiment2, list(df$type), sd, na.rm = T)
+
+  #separating self scores per trial into two columns
+  
+    self <- subset(df,type=="self")
+    human<- subset(df,type=="human")
+    scene <- subset(df,type=="scene")
+    
+  #t.test of differnce
+    
+    t.test(self$sentiment1, self$sentiment2)
+     t.test(scene$sentiment1, scene$sentiment2)
+      t.test(human$sentiment1, human$sentiment2)
+      t.test(df$sentiment1, df$sentiment2)
+
+
 
 ```
 
