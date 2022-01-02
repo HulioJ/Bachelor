@@ -19,8 +19,6 @@ output: html_document
 #Omit incomplete files
 
   df <- df[!is.na(df$`Gender*`),]  
-
-#Remove a weird file
   
   new_df <- subset(df, `Age*` != 8)
   df <- new_df
@@ -636,6 +634,68 @@ aggregate(df$sentiment2, list(df$type), sd, na.rm = T)
      -0.02336-0.0059
      0.130418-0.17268
      
+     #THIS-THAT BETWEEN CONDITIONS
+     
+     neg_con_post <- subset(neg_context,Trial == 2)
+     pos_con_post <- subset(pos_context,Trial == 2)
+     neg_con_pre <- subset(neg_context,Trial == 1)
+     pos_con_pre <- subset(pos_context,Trial == 1)
+    
+      df$thisthat01 <- ifelse(df$thisthatresp == 1, 1, 0)
+      trial1<- subset(df,Trial == 1)
+     trial2 <- subset(df,Trial == 2)
+     
+     #positive context pre/post
+     mean(pos_con_post$sentiment, na.rm = T)
+     mean(pos_con_pre$sentiment, na.rm = T)
+     sd(pos_con_post$sentiment, na.rm = T)
+     sd(pos_con_pre$sentiment, na.rm = T)
+     
+       mean(pos_con_pre$sentiment, na.rm = T)-mean(pos_con_post$sentiment, na.rm = T)
+       t.test(pos_con_pre$sentiment,pos_con_post$sentiment)
+      
+     
+     
+     #chnage in pre to post
+    ind_mean_thisthat_1 <-  aggregate(trial1$thisthat01, list(trial1$participant, trial1$Condition, trial1$type), mean, na.rm = T) 
+      ind_mean_thisthat_2 <- aggregate(trial2$thisthat01, list(trial2$participant, trial2$Condition, trial2$type), mean, na.rm = T) 
+      
+      
+      
+     mean_diff_ind <- (ind_mean_thisthat_2$x-ind_mean_thisthat_1$x)
+      ind_mean_thisthat_2$mean_diff_ind <- mean_diff_ind
+      
+     cond0_ind_diff<- subset(ind_mean_thisthat_2,Group.2 == 0)
+     cond1_ind_diff <- subset(ind_mean_thisthat_2,Group.2 == 1)
+   human_cond0_ind_diff   <- subset(cond0_ind_diff,Group.3 == "human")
+   scene_cond0_ind_diff <- subset(cond0_ind_diff,Group.3 == "scene")
+   self_cond0_ind_diff <- subset(cond0_ind_diff,Group.3 == "self")
+    human_cond1_ind_diff <- subset(cond1_ind_diff,Group.3 == "human")
+scene_cond1_ind_diff <- subset(cond1_ind_diff,Group.3 == "scene")
+   self_cond1_ind_diff <- subset(cond1_ind_diff,Group.3 == "self")
+     
+      t.test(self_cond0_ind_diff$mean_diff_ind,self_cond1_ind_diff$mean_diff_ind)
+      54+48-2
+      
+     
+      mean(cond1_ind_diff$mean_diff_ind)
+      sd(cond1_ind_diff$mean_diff_ind)
+        mean(cond0_ind_diff$mean_diff_ind)
+        sd(cond0_ind_diff$mean_diff_ind)
+        
+      ind_diff <-   lmerTest::lmer(mean_diff_ind ~ Group.2*Group.3 + (1|Group.1), data = ind_mean_thisthat_2)
+      summary(ind_diff)
+     
+     
+     
+     aggregate(all_self$sentiment, list(all_self$Word), mean, na.rm = T) 
+     
+     #Thisthat post trial 
+     
+      t.test(neg_context$thisthatresp,pos_context$thisthatresp)
+      t.test(neg_con_post$thisthatresp,pos_con_post$thisthatresp)
+      t.test(neg_con_pre$thisthatresp,pos_con_pre$thisthatresp)
+     
      #Mean sentiment post Trial
      
     summary(df$sentiment2, na.rm = T) 
@@ -649,47 +709,65 @@ aggregate(df$sentiment2, list(df$type), sd, na.rm = T)
 
 ```{r}
 #linear regression
+citation("lmerTest")
+
     
     #proximal distances
       df$thisthatresp <- NA
       df$thisthatresp <- ifelse(is.na(df$response1== T), df$response2, df$response1)
     
-      #assumption checks
-      qqnorm(df$thisthatresp)
       
-     hyp1 <-  aov(thisthatresp~Trial*Condition+(1|participant), data = df)
-     summary(hyp1)
-
+       hyp1 <-  lmerTest::lmer(thisthatresp~Trial*Condition+(1|participant), data = df)
+       summary(hyp1)
      
-   hypx <-   lmerTest::lmer(sentiment~Trial*Condition + (1|participant), data = df)
-      summary(hypx)
+     
+
+   #Sentiment each condition   
+      hyp1.1 <-   lmerTest::lmer(sentiment_scaled~Trial*Condition + (1|participant), data = df)
+      summary(hyp1.1)
       
       pos_context <- subset(df, Condition == 1)
       neg_context <- subset(df, Condition == 0)
-           
-      #Sentiment change Post versus Pre trial, each condition
       
-   hyp3 <-   lmerTest::lmer(sentiment_scaled~Trial + (1|participant), data = pos_context)
-      summary(hyp3)
-   hyp3.1 <-   lmerTest::lmer(sentiment_scaled~Trial + (1|participant), data = neg_context)
-      summary(hyp3.1)
-
+      all_self <- rbind(pos_context_self,neg_context_self)
       
-    #Only slef sentiments
       
-      pos_context_self <- subset(pos_context, type == "self")
+  pos_context_self <- subset(pos_context, type == "self")
       neg_context_self <- subset(neg_context, type == "self")
+     
+    ## HYP 3
+     
+       hyp3_n_this <-   lmerTest::lmer(thisthatresp~Trial+type + (1|participant), data = pos_context)
+        summary(hyp3_n_this)
+      hyp3_sent <-   lmerTest::lmer(sentiment_scaled~Trial + type + (1|participant), data = pos_context)
+        summary(hyp3_sent)
+         
+  
+      mean(pos_context$sentiment2, na.rm = T)
+      mean(neg_context$sentiment2, na.rm = T)
+      sd(pos_context$sentiment2, na.rm = T)
+      sd(neg_context$sentiment2, na.rm = T)
+      aggregate(df$sentiment2, list(df$type, df$Condition), mean, na.rm = T) 
+     ## SOCIAL EXCLUSION  
       
-      hyp4 <-   lmerTest::lmer(sentiment_scaled~Trial + (1|participant), data = pos_context_self)
-        summary(hyp4)
-      hyp4.1 <-   lmerTest::lmer(sentiment_scaled~Trial + (1|participant), data = neg_context_self)
-        summary(hyp4.1)
-        
+      socialstress <-   lmerTest::lmer(soc_ex_resp~Condition*shortened_questions+ (1|participant), data = df)
+        summary(socialstress)
+        anova(socialstress)
+
+   ## POST- HOC ###
+      
+      #sentiment of type
+      
+           
         hyp5 <-   lmerTest::lmer(sentiment~type*Condition + (1|participant), data = df)
         summary(hyp5)
         
-       
+        posthoc_ <-   lmerTest::lmer(thisthatresp~type+Trial*Condition + (1|participant), data = df)
+        summary(posthoc_)
+       anova(posthoc_)
   
+       
+ 
 
 ```
 
