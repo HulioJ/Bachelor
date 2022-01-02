@@ -15,6 +15,7 @@ output: html_document
   path = "/Users/julia/Documents/CogSci/Rbach/BachelorR/files"
   files <- dir_ls(path, glob="*.csv")
   df <- map_dfr(files, ~read_csv(.x, col_types = cols(participant = col_character())))
+  setwd("/Users/julia/Documents/CogSci/Rbach/BachelorR")
   
 #Omit incomplete files
 
