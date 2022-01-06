@@ -5,7 +5,8 @@ output: html_document
 
 ```{r}
 
-##################### SETUP #######################
+############################### SETUP ################################
+#        NOTE: For following code, start at line 111  
 
   setwd("/Users/julia/Documents/CogSci/Rbach/BachelorR")
   pacman::p_load(stringi, janitor, scales, fs, dplyr, ggplot2, wesanderson, rstatix)
@@ -17,8 +18,8 @@ output: html_document
   files <- dir_ls(path, glob="*.csv")
   df <- map_dfr(files, ~read_csv(.x, col_types = cols(participant = col_character())))
   setwd("/Users/julia/Documents/CogSci/Rbach/BachelorR")
-  df <- read.csv("fixeddata.csv")
   
+
 ##### CLEANING #####
   
 #Omit incomplete files
@@ -102,15 +103,21 @@ output: html_document
   
   df$Trial <- ifelse(is.na(df$sentiment2 == T), 1, 2)
 
- #separating the two conditions
+
+#save file
+  
+write.csv(df, file = "Full_anonymized_Dataset.csv")
+
+###################    CODE START   #######################
+
+    df <- read.csv("Full_anonymized_Dataset.csv")
+
+#separating the two conditions
 
     pos_context <- subset(df, (Condition == 1))
     neg_context <- subset(df, (Condition == 0))
     
 
-#save file
-  
-write.csv(df, file = "fixeddata.csv")
   
 ```
 
@@ -121,14 +128,14 @@ write.csv(df, file = "fixeddata.csv")
 
   #gender
     
-    df %>% count(`Gender*`)
+    df %>% count(Gender.)
     1632/96
     96/96
     1536/96
   
   #age
     
-    summary(df$`Age*`)
+    summary(df$Age.)
   
   #Conditions
     
@@ -329,15 +336,16 @@ write.csv(df, file = "fixeddata.csv")
     mean(neg_context$sentiment)
     
     
-   #proximal distances
-
-     df$thisthatresp <- NA
-     df$thisthatresp <- ifelse(is.na(df$response1== T), df$response2, df$response1)
-          
+         #proximal distances
+      
+           df$thisthatresp <- NA
+           df$thisthatresp <- ifelse(is.na(df$response1== T), df$response2, df$response1)
+                
             
       hyp1 <-  lmerTest::lmer(thisthatresp~Trial*Condition+(1|participant), data = df)
       summary(hyp1)
-      
+      hyp1.2 <-  lmerTest::lmer(sentiment_scaled~Trial*Condition+(1|participant), data = df)
+      summary(hyp1.2)
       
       
       #THIS-THAT BETWEEN CONDITIONS
@@ -366,6 +374,7 @@ write.csv(df, file = "fixeddata.csv")
            
        
    #####  HYP 1 PLOT ###########   
+       
         
      ggplot(sentiment_per_word_scaled, aes(x=Trial, y=Sentiment_scaled)) + 
            geom_line(stat = "summary", fun = "mean",aes(color=Type, group = Type))+
@@ -375,6 +384,7 @@ write.csv(df, file = "fixeddata.csv")
            theme_minimal()+
            geom_errorbar(stat = "summary", aes(ymin=Sentiment_scaled-sd(Sentiment_scaled), ymax=Sentiment_scaled+sd(Sentiment_scaled), group=Type, color=Type), width=.1) +
            facet_wrap(~Condition)
+        
      
    
      #Scaled sentiment per word
@@ -445,15 +455,33 @@ write.csv(df, file = "fixeddata.csv")
           
           
           soc_ex_resp_sd <- sd(df$soc_ex_resp)
-          soc_ex_resp_mean <- mean(df$soc_ex_resp)
+          soc_ex_resp_sd <- sqrt(var(soc_ex_resp_sd))
           
   
-          
-          ggplot(data=subset(df, !is.na(shortened_questions)), aes(x=shortened_questions, y=soc_ex_resp, fill=Conditions)) +
-            geom_bar(stat='summary', position='dodge', fun = 'mean')+
+
+
+       qs <- df %>%
+                group_by(shortened_questions,Condition) %>%
+                summarise(
+                  sd = sd(soc_ex_resp, na.rm = TRUE),
+                  len = mean(soc_ex_resp)
+                )
+              
+     qs <-   subset(qs,  !is.na(shortened_questions==T))
+            
+           
+              qs$shortened_questions <- as.factor(qs$shortened_questions)
+              qs$Condition <- as.factor(qs$Condition)
+              qs$Condition <- ifelse(qs$Condition==1, "Positive condition", "Negative condition")
+              
+            ##PLOT 
+              
+          ggplot(data=qs, aes(x=shortened_questions, y=len, group = Condition, fill= Condition))+ geom_bar(stat='summary', position='dodge', fun = 'mean')+
             labs(x="Social stress", y = "Mean response", color = "Conditions")+
             scale_fill_manual(values = wes_palette(2,name = "Darjeeling1"))+
-  geom_errorbar( aes(x=shortened_questions, ymin=soc_ex_resp_mean-soc_ex_resp_sd, ymax=soc_ex_resp_mean+soc_ex_resp_sd), width=0.4, colour="orange", alpha=0.9, size=1.3)
+          stat_summary(fun.data = mean_se, geom = "errorbar", group = qs$Condition)
+  
+
 
 
 
@@ -557,7 +585,10 @@ write.csv(df, file = "fixeddata.csv")
   
    
     ## SUM OF THISES BY TYPE AND CONDITION (PLOT)
-   
+        
+    
+     
+
     ggplot(thises_condition_type, aes(x=Trial, y=Sum, add = "mean_se", group = Word)) + 
           geom_line(aes(group=Word,color=Word))+
          geom_point(aes(color=Word))+
@@ -565,7 +596,7 @@ write.csv(df, file = "fixeddata.csv")
          scale_color_manual(values = wes_palette(3,name = "Darjeeling1"))+
          theme_minimal()+
          facet_wrap(~Condition)+
-         geom_errorbar( aes(ymin=Sum-sd(Sum), ymax=Sum+sd(Sum), group=Word, color=Word), width=.1)
+         geom_errorbar(aes(x=Trial, ymin=Sum-sd(Sum), ymax=Sum+sd(Sum), group=Word, color= Word), width=.1)
     
   
   #################################################
@@ -668,10 +699,8 @@ scene_cond1_ind_diff <- subset(cond1_ind_diff,Group.3 == "scene")
           
         
         posthoc1 <- lmerTest::lmer(thisthatresp~type+Trial*Condition+ (1|participant), data = df)
-        summary(posthoc2)
+        summary(posthoc1)
   
        
- 
-
 ```
 
